@@ -88,7 +88,7 @@ app.get(OAUTH_PATH, async (req, res) => {
         setSessionData(response.data, req.session);
         res.redirect(302, `${APP_URI}`);
     } catch (error) {
-        logger.error(JSON.stringify(error.response.data));
+        logger.error(JSON.stringify(error));
         res.statusMessage = 'Missing access token';
         res.status(400).end('Unable to retrieve access token.');
     }
@@ -158,14 +158,16 @@ function setSessionData(data, session) {
         session.data.expires_at = new Date().getTime() + (data.expires_in * 1000);
         session.data.expires_in = data.expires_in;
         session.data.token_type = data.token_type;
-        if (data.athlete.id) {
-            session.data.athleteId = data.athlete.id;
-        }
-        if (data.athelete.firstName) {
-            session.data.firstName = data.athlete.firstName;
-        }
         if (session.id) {
             session.data.id = session.id;
+        }
+        if (data.athlete) {
+            if (data.athlete.id) {
+                session.data.athleteId = data.athlete.id;
+            }
+            if (data.athlete.firstName) {
+                session.data.firstName = data.athlete.firstName;
+            }
         }
     }
 
