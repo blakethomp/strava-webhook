@@ -45,6 +45,8 @@ if (NODE_ENV !== 'production') {
     }));
 }
 
+app.use(express.json());
+
 app.use(session({
     store: new sessionStore({
         data_storage_area: SESSION_STORAGE_DIR,
@@ -102,9 +104,13 @@ app.get(SUB_PATH, (req, res) => {
 });
 
 app.post(SUB_PATH, async (req, res) => {
-    if (req.body.object_type !== 'activity') return;
-    if (req.body.aspect_type !== 'create') return;
-    if (req.body.subscription_id !== subscriptionId) return;
+    if (
+        req.body.object_type !== 'activity' ||
+        req.body.aspect_type !== 'create' ||
+        req.body.subscription_id !== subscriptionId
+    ) {
+        res.status(200).end();
+    }
 
     req.sessionStore.all((error, sessions) => {
         let session = sessions.find(session => session.data.athleteId === req.body.owner_id);
