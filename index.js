@@ -97,7 +97,7 @@ app.get(OAUTH_PATH, async (req, res) => {
 app.get(SUB_PATH, (req, res) => {
     const { 'hub.challenge': hubChallenge, 'hub.mode': hubMode, 'hub.verify_token': hubToken } = req.query;
     if (hubMode === 'subscribe' && hubToken === VERIFY_TOKEN) {
-        res.send(hubChallenge);
+        res.send({ 'hub.challenge': hubChallenge });
     }
 });
 
@@ -187,7 +187,7 @@ async function subscriptionCheck() {
         if (response.data.length === 0) {
             return await createSubscription();
         }
-        return response.data.id;
+        return response.data[0].id;
     } catch (error) {
         logger.error(`${JSON.stringify(error.response.data)}`);
     }
