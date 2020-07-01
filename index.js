@@ -171,8 +171,8 @@ function setSessionData(data, session) {
             if (data.athlete.id) {
                 session.data.athleteId = data.athlete.id;
             }
-            if (data.athlete.firstName) {
-                session.data.firstName = data.athlete.firstName;
+            if (data.athlete.firstname) {
+                session.data.firstname = data.athlete.firstname;
             }
         }
     }
@@ -231,23 +231,23 @@ async function sendActivity(session, activityId) {
             const { data } = response;
             const minutes = Math.floor(data.moving_time / 60);
             const seconds = data.moving_time - (minutes * 60);
-            const { firstName: name } = session.data;
+            const { firstname } = session.data;
             const message = {
                 blocks: [
                     {
                         type: 'section',
                         text: {
                             type: 'mrkdwn',
-                            text: `*${data.name}*\n${name} did a ${(data.distance / 1000).toFixed(1)}km
-                                ${data.type} in ${minutes}:${seconds} and gained ${data.total_elevation_gain}m
+                            text: `*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km
+                                ${data.type} in ${minutes}:${seconds >= 10 ? seconds : seconds === 0 ? `00` : `0${seconds}`} and gained ${data.total_elevation_gain}m
                                 (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.
-                                ${name} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph.`
+                                ${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph.`
                         }
                     }
                 ]
             };
             if (data.photos.count > 0) {
-                message.blocks[0].text.accessory = {
+                message.blocks[0].accessory = {
                     type: 'image',
                     image_url: data.photos.primary.urls[100]
                 }
