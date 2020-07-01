@@ -231,6 +231,7 @@ async function sendActivity(session, activityId) {
             const { data } = response;
             const minutes = Math.floor(data.moving_time / 60);
             const seconds = data.moving_time - (minutes * 60);
+            const secondsDisplay = seconds >= 10 ? seconds : seconds === 0 ? '00' : `0${seconds}`;
             const { firstname } = session.data;
             const message = {
                 blocks: [
@@ -239,17 +240,18 @@ async function sendActivity(session, activityId) {
                         text: {
                             type: 'mrkdwn',
                             text: `*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km
-                                ${data.type} in ${minutes}:${seconds >= 10 ? seconds : seconds === 0 ? `00` : `0${seconds}`} and gained ${data.total_elevation_gain}m
+                                ${data.type} in ${minutes}:${secondsDisplay} and gained ${data.total_elevation_gain}m
                                 (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.
                                 ${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph.`
-                        }
-                    }
-                ]
+                        },
+                    },
+                ],
             };
             if (data.photos.count > 0) {
                 message.blocks[0].accessory = {
                     type: 'image',
-                    image_url: data.photos.primary.urls[100]
+                    image_url: data.photos.primary.urls[100],
+                    alt_text: 'Strava image',
                 }
             }
             axios({
