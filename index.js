@@ -255,7 +255,7 @@ async function sendActivity(session, activityId) {
             axios({
                 type: 'post',
                 url: SLACK_WEBHOOK,
-                data: message
+                data: JSON.stringify(message)
             })
             .then(() => {
                 logger.info('Message sent.');
