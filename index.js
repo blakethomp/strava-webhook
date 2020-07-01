@@ -257,6 +257,12 @@ async function sendActivity(session, activityId) {
                 url: SLACK_WEBHOOK,
                 data: message
             })
+            .then(() => {
+                logger.info('Message sent.');
+            })
+            .catch(slackError => {
+                logger.error(JSON.stringify(slackError.response.data));
+            })
         })
         .catch(error => logger.error(`Failed to get activity: ${JSON.stringify(error.response.data)}`));
     }, 1000);
