@@ -1,0 +1,23 @@
+{
+  "name": "strava",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "axios": "^0.19.2",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "express-session-rsdb": "^0.1.7",
+    "winston": "^3.3.3"
+  },
+  "devDependencies": {
+    "eslint": "^7.2.0",
+    "eslint-config-airbnb-base": "^14.2.0",
+    "eslint-plugin-import": "^2.21.2"
+  },
+  "scripts": {},
+  "author": "Blake Thompson",
+  "license": "ISC"
+}
