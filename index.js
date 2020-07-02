@@ -191,7 +191,6 @@ async function subscriptionCheck() {
                 accept: 'application/json'
             }
         })
-        logger.info(JSON.stringify(response.data));
         if (response.data.length === 0) {
             return await createSubscription();
         }
