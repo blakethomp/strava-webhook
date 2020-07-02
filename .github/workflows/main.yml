@@ -22,4 +22,4 @@ jobs:
         echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan "${{ secrets.HOST }}" >> ~/.ssh/known_hosts
-        ssh ${{ secrets.USER }}@${{ secrets.HOST }} 'cd ${{ secrets.PATH }} && git pull && npm install && forever stop index.js && NODE_OPTIONS="--experimental-modules" forever start index.js'
+        ssh ${{ secrets.USER }}@${{ secrets.HOST }} 'cd ${{ secrets.PATH }} && git pull && npm install && forever stop index.js && export NODE_OPTIONS="--experimental-modules" && (forever restart index.js || forever start index.js)'
