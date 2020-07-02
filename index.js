@@ -24,21 +24,19 @@ const {
     SLACK_WEBHOOK
 } = process.env;
 
+const apiRoot = 'https://www.strava.com/api/v3';
+
 let subscriptionId;
 
 const logger = winston.createLogger({
     level: 'info',
     format: winston.format.json(),
-    // defaultMeta: { service: 'user-service' },
     transports: [
         new winston.transports.File({ filename: 'error.log', level: 'warning' }),
     ],
 });
 
-//
-// If we're not in production then log to the `console` with the format:
-// `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
-//
+// If we're not in production then log to the console.
 if (NODE_ENV !== 'production') {
     logger.add(new winston.transports.Console({
         format: winston.format.simple(),
@@ -52,15 +50,15 @@ app.use(session({
         data_storage_area: SESSION_STORAGE_DIR,
     }),
     secret: SESSION_KEY,
-    secure: NODE_ENV === 'production',
     saveUninitialized: false,
     resave: false,
     cookie: {
+        secure: NODE_ENV === 'production',
         maxAge: 1000 * 60 * 60 * 24 * 30
     }
 }));
 
-app.get( '/', async (req, res) => {
+app.get('/', (req, res) => {
     if (!req.session.data && CLIENT_ID && APP_URI) {
         return res.send(`
             <a href="https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${APP_URI}${OAUTH_PATH}&response_type=code&scope=${APP_SCOPE}">
@@ -88,9 +86,9 @@ app.get(OAUTH_PATH, async (req, res) => {
     try {
         const response = await getAccessToken(code, 'authorization_code');
         setSessionData(response.data, req.session);
-        res.redirect(302, `${APP_URI}`);
+        res.redirect(302, APP_URI);
     } catch (error) {
-        logger.error(JSON.stringify(error));
+        logger.error('Failed getting and storing access token', error);
         res.statusMessage = 'Missing access token';
         res.status(400).end('Unable to retrieve access token.');
     }
@@ -110,11 +108,15 @@ app.post(SUB_PATH, async (req, res) => {
         req.body.aspect_type !== 'create' ||
         req.body.subscription_id !== subscriptionId
     ) {
-        logger.info(`Ignored incoming webhook: ${JSON.stringify(req.body)}`);
+        logger.info('Ignored incoming webhook', req.body);
         res.status(200).end();
     }
 
     req.sessionStore.all((error, sessions) => {
+        if (error) {
+            return logger.error('Failed getting sessions.', error);
+        }
+
         let session = sessions.find(session => session.data.athleteId === req.body.owner_id);
         if (session) {
             const date = new Date();
@@ -122,9 +124,9 @@ app.post(SUB_PATH, async (req, res) => {
                 try {
                     const response = getAccessToken(session.data.refresh_token, 'refresh_token');
                     session = setSessionData(response.data, session);
-                    req.sessionStore.touch(session.data.id, session, error => logger.error(JSON.stringify(error)));
+                    req.sessionStore.touch(session.data.id, session, error => logger.error('Failed updating session.', error));
                 } catch (error) {
-                    logger.error(JSON.stringify(error.response.data));
+                    logger.error('Failed getting refresh token.', error.response.data);
                 }
             }
             sendActivity(session, req.body.object_id);
@@ -134,7 +136,7 @@ app.post(SUB_PATH, async (req, res) => {
 });
 
 const server = app.listen(SERVER_PORT, async () => {
-    logger.info(`Example app listening at ${APP_URI}`)
+    logger.info(`App listening at ${SERVER_PORT}`)
     subscriptionId = await subscriptionCheck();
 })
 
@@ -148,7 +150,7 @@ async function getAccessToken(code, grantType) {
 
     return await axios({
         method: 'post',
-        url: `https://www.strava.com/api/v3/oauth/token?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&${grantParams}`,
+        url: `${apiRoot}/oauth/token?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&${grantParams}`,
         headers: {
             accept: 'application/json'
         }
@@ -186,7 +188,7 @@ async function subscriptionCheck() {
     try {
         const response = await axios({
             method: 'get',
-            url: `https://www.strava.com/api/v3/push_subscriptions?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}`,
+            url: `${apiRoot}/push_subscriptions?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}`,
             headers: {
                 accept: 'application/json'
             }
@@ -196,7 +198,7 @@ async function subscriptionCheck() {
         }
         return response.data[0].id;
     } catch (error) {
-        logger.error(`${JSON.stringify(error.response.data)}`);
+        logger.error('Could not verify webhook subscription.', error.response.data);
     }
 }
 
@@ -204,15 +206,15 @@ async function createSubscription() {
     try {
         const response = await axios({
             method: 'post',
-            url: `https://www.strava.com/api/v3/push_subscriptions?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&callback_url=${APP_URI}${SUB_PATH}&verify_token=${VERIFY_TOKEN}`,
+            url: `${apiRoot}/push_subscriptions?client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&callback_url=${APP_URI}${SUB_PATH}&verify_token=${VERIFY_TOKEN}`,
             headers: {
                 accept: 'application/json'
             }
         });
-        logger.info(`Subscription created: ${JSON.stringify(response.data)}`);
+        logger.info('Subscription created', response.data);
         return response.data.id;
     } catch (error) {
-        logger.error(`Failed to create subscription: ${JSON.stringify(error.response.data)}`);
+        logger.error('Failed to create subscription', error.response.data);
         server.close(() => {
             logger.info('Shutting down.');
         });
@@ -223,7 +225,7 @@ async function sendActivity(session, activityId) {
     setTimeout(() => {
         axios({
             method: 'get',
-            url: `https://www.strava.com/api/v3/activities/${activityId}`,
+            url: `${apiRoot}/activities/${activityId}`,
             headers: {
                 Authorization: `Bearer ${session.data.access_token}`
             }
@@ -271,9 +273,9 @@ async function sendActivity(session, activityId) {
                 logger.info('Message sent.');
             })
             .catch(slackError => {
-                logger.error(JSON.stringify(slackError.response.data));
+                logger.error('Failed to send message', slackError.response.data);
             })
         })
-        .catch(error => logger.error(`Failed to get activity: ${JSON.stringify(error.response.data)}`));
+        .catch(error => logger.error('Failed to get activity', error.response.data));
     }, 1000 * 60 * 5);
 }
