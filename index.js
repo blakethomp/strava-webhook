@@ -105,10 +105,12 @@ app.get(SUB_PATH, (req, res) => {
 
 app.post(SUB_PATH, async (req, res) => {
     if (
+        !req.body ||
         req.body.object_type !== 'activity' ||
         req.body.aspect_type !== 'create' ||
         req.body.subscription_id !== subscriptionId
     ) {
+        logger.info(`Ignored incoming webhook: ${JSON.stringify(req.body)}`);
         res.status(200).end();
     }
 
@@ -230,15 +232,15 @@ async function sendActivity(session, activityId) {
         .then(response => {
             const { data } = response;
             const hours = Math.floor(data.moving_time / 60 / 60);
-            const minutes = Math.floor(data.moving_time - (hours * 3600));
-            const minutesDisplay = minutes >= 10 ? minutes : minutes === 0 ? '00' : `0${minutes}`;
+            const minutes = Math.floor(data.moving_time - (hours * 3600) / 60);
+            const minutesDisplay = minutes >= 10 ? minutes : minutes <= 0 ? '00' : `0${minutes}`;
             const seconds = data.moving_time - (hours * 3600) - (minutes * 60);
-            const secondsDisplay = seconds >= 10 ? seconds : seconds === 0 ? '00' : `0${seconds}`;
+            const secondsDisplay = seconds >= 10 ? seconds : seconds <= 0 ? '00' : `0${seconds}`;
             const { firstname } = session.data;
             const maxSpeed = parseFloat(data.max_speed) * 3.6;
-            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay} and gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.`;
+            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}k ${data.type} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay} and gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.`;
             if (maxSpeed > 0) {
-                messageText += `${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph.`
+                messageText += ` ${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph :dash:.`
             }
             const message = {
                 blocks: [
@@ -274,5 +276,5 @@ async function sendActivity(session, activityId) {
             })
         })
         .catch(error => logger.error(`Failed to get activity: ${JSON.stringify(error.response.data)}`));
-    }, 1000);
+    }, 1000 * 60 * 5);
 }
