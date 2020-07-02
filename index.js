@@ -141,9 +141,9 @@ const server = app.listen(SERVER_PORT, async () => {
 async function getAccessToken(code, grantType) {
     let grantParams;
     if (grantType === 'authorization_code') {
-        grantParams = `&code=${code}&grant_type=${grantType}`;
+        grantParams = `code=${code}&grant_type=${grantType}`;
     } else if (grantType === 'refresh_token') {
-        grantParams = `&refresh_token=${code}&grant_type=${grantType}`
+        grantParams = `refresh_token=${code}&grant_type=${grantType}`
     }
 
     return await axios({
