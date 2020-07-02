@@ -230,9 +230,9 @@ async function sendActivity(session, activityId) {
         .then(response => {
             const { data } = response;
             const hours = Math.floor(data.moving_time / 60 / 60);
-            const minutes = Math.floor(data.moving_time - (hours * 360));
+            const minutes = Math.floor(data.moving_time - (hours * 3600));
             const minutesDisplay = minutes >= 10 ? minutes : minutes === 0 ? '00' : `0${minutes}`;
-            const seconds = data.moving_time - ((hours * 360) + (minutes * 60));
+            const seconds = data.moving_time - (hours * 3600) - (minutes * 60);
             const secondsDisplay = seconds >= 10 ? seconds : seconds === 0 ? '00' : `0${seconds}`;
             const { firstname } = session.data;
             const maxSpeed = parseFloat(data.max_speed) * 3.6;
