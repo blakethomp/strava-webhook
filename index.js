@@ -233,16 +233,18 @@ async function sendActivity(session, activityId) {
             const seconds = data.moving_time - (minutes * 60);
             const secondsDisplay = seconds >= 10 ? seconds : seconds === 0 ? '00' : `0${seconds}`;
             const { firstname } = session.data;
+            const maxSpeed = parseFloat(data.max_speed) * 3.6;
+            let messageText = `*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type} in ${minutes}:${secondsDisplay} and gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.`;
+            if (maxSpeed > 0) {
+                messageText += `${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph.`
+            }
             const message = {
                 blocks: [
                     {
                         type: 'section',
                         text: {
                             type: 'mrkdwn',
-                            text: `*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km
-                                ${data.type} in ${minutes}:${secondsDisplay} and gained ${data.total_elevation_gain}m
-                                (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.
-                                ${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph.`
+                            text: messageText,
                         },
                     },
                 ],
