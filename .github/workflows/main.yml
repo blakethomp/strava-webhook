@@ -22,8 +22,6 @@ jobs:
       with:
         node-version: '12'
     # Runs a single command using the runners shell
-    - run: npm ci
-    - run: webpack
     - run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
