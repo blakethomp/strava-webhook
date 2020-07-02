@@ -221,7 +221,7 @@ async function createSubscription() {
 async function sendActivity(session, activityId) {
     setTimeout(() => {
         axios({
-            type: 'get',
+            method: 'get',
             url: `https://www.strava.com/api/v3/activities/${activityId}`,
             headers: {
                 Authorization: `Bearer ${session.data.access_token}`
@@ -229,17 +229,22 @@ async function sendActivity(session, activityId) {
         })
         .then(response => {
             const { data } = response;
-            const minutes = Math.floor(data.moving_time / 60);
-            const seconds = data.moving_time - (minutes * 60);
+            const hours = Math.floor(data.moving_time / 60 / 60);
+            const minutes = Math.floor(data.moving_time - (hours * 360));
+            const minutesDisplay = minutes >= 10 ? minutes : minutes === 0 ? '00' : `0${minutes}`;
+            const seconds = data.moving_time - ((hours * 360) + (minutes * 60));
             const secondsDisplay = seconds >= 10 ? seconds : seconds === 0 ? '00' : `0${seconds}`;
             const { firstname } = session.data;
             const maxSpeed = parseFloat(data.max_speed) * 3.6;
-            let messageText = `*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type} in ${minutes}:${secondsDisplay} and gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.`;
+            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay} and gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.`;
             if (maxSpeed > 0) {
                 messageText += `${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph.`
             }
             const message = {
                 blocks: [
+                    {
+                        type: 'divider',
+                    },
                     {
                         type: 'section',
                         text: {
@@ -257,9 +262,9 @@ async function sendActivity(session, activityId) {
                 }
             }
             axios({
-                type: 'post',
+                method: 'post',
                 url: SLACK_WEBHOOK,
-                data: JSON.stringify(message)
+                data: message
             })
             .then(() => {
                 logger.info('Message sent.');
