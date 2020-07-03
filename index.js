@@ -105,8 +105,6 @@ app.get(SUB_PATH, (req, res) => {
 });
 
 app.post(SUB_PATH, (req, res) => {
-    logger.info('Webhook POST', req.body);
-
     if (
         !req.body ||
         req.body.object_type !== 'activity' ||
@@ -114,12 +112,13 @@ app.post(SUB_PATH, (req, res) => {
         req.body.subscription_id !== subscriptionId
     ) {
         logger.info('Ignored incoming webhook', req.body);
-        res.status(200).end();
+        return res.status(200).end();
     }
 
     req.sessionStore.all(async (error, sessions) => {
         if (error) {
-            return logger.error('Failed getting sessions.', error);
+            logger.error('Failed getting sessions.', error);
+            return res.status(400).end();
         }
 
         let session = sessions.find(session => session.data.athleteId === req.body.owner_id);
@@ -138,13 +137,17 @@ app.post(SUB_PATH, (req, res) => {
                     });
                 } catch (error) {
                     logger.error('Failed getting refresh token.', error.response ? error.response.data : error);
-                    res.status(400).end();
+                    return res.status(400).end();
                 }
             }
             sendActivity(session, req.body.object_id);
-            res.status(200).end();
+        } else {
+            logger.error('Failed to find session/tokens');
+            return res.status(400).end();
         }
     });
+
+    res.status(200).end();
 });
 
 const server = app.listen(SERVER_PORT, async () => {
