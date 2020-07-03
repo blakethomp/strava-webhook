@@ -237,7 +237,8 @@ async function createSubscription() {
 }
 
 async function sendActivity(session, activityId) {
-    logger.info('Attempting send message');
+    const timeout = NODE_ENV === 'production' ? 1000 * 60 * 5 : 500;
+    logger.info(`Attempting to send message for ${activityId} in ${timeout}ms`);
 
     setTimeout(() => {
         axios({
@@ -256,8 +257,8 @@ async function sendActivity(session, activityId) {
             const secondsDisplay = seconds >= 10 ? seconds : seconds <= 0 ? '00' : `0${seconds}`;
             const { firstname } = session.data;
             const maxSpeed = parseFloat(data.max_speed) * 3.6;
-            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}k ${data.type} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay}, gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:`;
-            if (maxSpeed > 0) {
+            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type.toLowerCase()} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay}, gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:`;
+            if (maxSpeed > 0 && data.type.toLowerCase() === 'run') {
                 messageText += ` and hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph :dash:`
             }
             const message = {
@@ -296,5 +297,5 @@ async function sendActivity(session, activityId) {
             })
         })
         .catch(error => logger.error('Failed to get activity', error.response.data));
-    }, NODE_ENV === 'production' ? 1000 * 60 * 5 : 500);
+    }, timeout);
 }
