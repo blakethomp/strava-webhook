@@ -123,7 +123,7 @@ app.post(SUB_PATH, (req, res) => {
         let session = sessions.find(session => session.data.athleteId === req.body.owner_id);
         if (session) {
             const date = new Date();
-            if (session.data.expires_at < date.getTime()) {
+            if (session.data.expires_at <= date.getTime()) {
                 try {
                     const response = await getAccessToken(session.data.refresh_token, 'refresh_token');
                     session = setSessionData(response.data, session);
