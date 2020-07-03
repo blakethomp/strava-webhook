@@ -33,6 +33,7 @@ const logger = winston.createLogger({
     format: winston.format.json(),
     transports: [
         new winston.transports.File({ filename: 'error.log', level: 'warning' }),
+        new winston.transports.File({ filename: 'combined.log', level: 'info' }),
     ],
 });
 
@@ -101,7 +102,9 @@ app.get(SUB_PATH, (req, res) => {
     }
 });
 
-app.post(SUB_PATH, async (req, res) => {
+app.post(SUB_PATH, (req, res) => {
+    logger.info('Webhook POST', req.body);
+
     if (
         !req.body ||
         req.body.object_type !== 'activity' ||
@@ -112,7 +115,7 @@ app.post(SUB_PATH, async (req, res) => {
         res.status(200).end();
     }
 
-    req.sessionStore.all((error, sessions) => {
+    req.sessionStore.all(async (error, sessions) => {
         if (error) {
             return logger.error('Failed getting sessions.', error);
         }
@@ -120,13 +123,20 @@ app.post(SUB_PATH, async (req, res) => {
         let session = sessions.find(session => session.data.athleteId === req.body.owner_id);
         if (session) {
             const date = new Date();
-            if (session.data.expires_at <= date.getTime()) {
+            if (session.data.expires_at < date.getTime()) {
                 try {
-                    const response = getAccessToken(session.data.refresh_token, 'refresh_token');
+                    const response = await getAccessToken(session.data.refresh_token, 'refresh_token');
                     session = setSessionData(response.data, session);
-                    req.sessionStore.touch(session.data.id, session, error => logger.error('Failed updating session.', error));
+                    date.setDate(date.getDate() + 30);
+                    session.cookie.expires = date.toISOString();
+                    req.sessionStore.set(session.data.id, session, error => {
+                        if (error) {
+                            logger.error('Failed updating session.', error);
+                        }
+                    });
                 } catch (error) {
-                    logger.error('Failed getting refresh token.', error.response.data);
+                    logger.error('Failed getting refresh token.', error.response ? error.response.data : error);
+                    res.status(400).end();
                 }
             }
             sendActivity(session, req.body.object_id);
@@ -222,6 +232,8 @@ async function createSubscription() {
 }
 
 async function sendActivity(session, activityId) {
+    logger.info('Attempting send message');
+
     setTimeout(() => {
         axios({
             method: 'get',
@@ -233,15 +245,15 @@ async function sendActivity(session, activityId) {
         .then(response => {
             const { data } = response;
             const hours = Math.floor(data.moving_time / 60 / 60);
-            const minutes = Math.floor(data.moving_time - (hours * 3600) / 60);
+            const minutes = Math.floor((data.moving_time - (hours * 3600)) / 60);
             const minutesDisplay = minutes >= 10 ? minutes : minutes <= 0 ? '00' : `0${minutes}`;
             const seconds = data.moving_time - (hours * 3600) - (minutes * 60);
             const secondsDisplay = seconds >= 10 ? seconds : seconds <= 0 ? '00' : `0${seconds}`;
             const { firstname } = session.data;
             const maxSpeed = parseFloat(data.max_speed) * 3.6;
-            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}k ${data.type} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay} and gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.`;
+            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}k ${data.type} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay}, gained ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:.`;
             if (maxSpeed > 0) {
-                messageText += ` ${firstname} hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph :dash:.`
+                messageText += ` and hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph :dash:.`
             }
             const message = {
                 blocks: [
@@ -257,13 +269,15 @@ async function sendActivity(session, activityId) {
                     },
                 ],
             };
+
             if (data.photos.count > 0) {
-                message.blocks[0].accessory = {
+                message.blocks[1].accessory = {
                     type: 'image',
                     image_url: data.photos.primary.urls[100],
                     alt_text: 'Strava image',
                 }
             }
+
             axios({
                 method: 'post',
                 url: SLACK_WEBHOOK,
@@ -277,5 +291,5 @@ async function sendActivity(session, activityId) {
             })
         })
         .catch(error => logger.error('Failed to get activity', error.response.data));
-    }, 1000 * 60 * 5);
+    }, NODE_ENV === 'production' ? 1000 * 60 * 5 : 500);
 }
