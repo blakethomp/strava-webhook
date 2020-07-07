@@ -21,7 +21,8 @@ const {
     SUB_PATH,
     SESSION_STORAGE_DIR,
     NODE_ENV,
-    SLACK_WEBHOOK
+    SLACK_WEBHOOK,
+    SMASHRUN,
 } = process.env;
 
 const apiRoot = 'https://www.strava.com/api/v3';
@@ -249,53 +250,87 @@ async function sendActivity(session, activityId) {
             }
         })
         .then(response => {
-            const { data } = response;
-            const hours = Math.floor(data.moving_time / 60 / 60);
-            const minutes = Math.floor((data.moving_time - (hours * 3600)) / 60);
-            const minutesDisplay = minutes >= 10 ? minutes : minutes <= 0 ? '00' : `0${minutes}`;
-            const seconds = data.moving_time - (hours * 3600) - (minutes * 60);
-            const secondsDisplay = seconds >= 10 ? seconds : seconds <= 0 ? '00' : `0${seconds}`;
-            const { firstname } = session.data;
-            const maxSpeed = parseFloat(data.max_speed) * 3.6;
-            let messageText = `>>>*${data.name}*\n${firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type.toLowerCase()} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay}, gaining ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:`;
-            if (maxSpeed > 0 && data.type.toLowerCase() === 'run') {
-                messageText += ` and hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph :dash:`
-            }
-            const message = {
-                blocks: [
-                    {
-                        type: 'divider',
-                    },
-                    {
-                        type: 'section',
-                        text: {
-                            type: 'mrkdwn',
-                            text: messageText,
-                        },
-                    },
-                ],
-            };
-
-            if (data.photos.count > 0) {
-                message.blocks[1].accessory = {
-                    type: 'image',
-                    image_url: data.photos.primary.urls[100],
-                    alt_text: 'Strava image',
-                }
-            }
-
-            axios({
-                method: 'post',
-                url: SLACK_WEBHOOK,
-                data: message
-            })
-            .then(() => {
-                logger.info('Message sent.');
-            })
-            .catch(slackError => {
-                logger.error('Failed to send message', slackError.response.data);
-            })
+            sendSlackMessage({...response.data, firstname: session.data.firstname});
+            syncSmashRun();
         })
         .catch(error => logger.error('Failed to get activity', error.response.data));
     }, timeout);
+}
+
+function sendSlackMessage(data) {
+    const hours = Math.floor(data.moving_time / 60 / 60);
+    const minutes = Math.floor((data.moving_time - (hours * 3600)) / 60);
+    const minutesDisplay = minutes >= 10 ? minutes : minutes <= 0 ? '00' : `0${minutes}`;
+    const seconds = data.moving_time - (hours * 3600) - (minutes * 60);
+    const secondsDisplay = seconds >= 10 ? seconds : seconds <= 0 ? '00' : `0${seconds}`;
+    const maxSpeed = parseFloat(data.max_speed) * 3.6;
+    let messageText = `>>>*${data.name}*\n${data.firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type.toLowerCase()} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay}, gaining ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:`;
+    if (maxSpeed > 0 && data.type.toLowerCase() === 'run') {
+        messageText += ` and hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph :dash:`
+    }
+    const message = {
+        blocks: [
+            {
+                type: 'divider',
+            },
+            {
+                type: 'section',
+                text: {
+                    type: 'mrkdwn',
+                    text: messageText,
+                },
+            },
+        ],
+    };
+
+    if (data.photos.count > 0) {
+        message.blocks[1].accessory = {
+            type: 'image',
+            image_url: data.photos.primary.urls[100],
+            alt_text: 'Strava image',
+        }
+    }
+
+    axios({
+        method: 'post',
+        url: SLACK_WEBHOOK,
+        data: message
+    })
+    .then(() => {
+        logger.info('Message sent.');
+    })
+    .catch(error => {
+        logger.error('Failed to send message', error.response.data);
+    })
+}
+
+function syncSmashRun() {
+    axios({
+        method: 'post',
+        url: 'https://secure.smashrun.com/services/userAuth-jsonservice.asmx/LoginUser',
+        data: JSON.parse(SMASHRUN),
+    }).then(response => {
+        if (response.data && !response.data.info.isError && !response.data.info.isFailed) {
+            axios({
+                method: 'post',
+                url: 'https://smashrun.com/services/import-jsonservice.asmx/RetrieveRunsAndSave',
+                headers: {
+                    Cookie: response.headers['set-cookie'][0],
+                },
+                data: {
+                    source: 'strava',
+                    reimportAll: false,
+                    forceRefresh: false
+                },
+            }).then(response => {
+                if (response.data && !response.data.info.isFailed) {
+                    logger.info('Smashrun synched');
+                }
+            }).catch(error => {
+                logger.error('Smashrun failed sync', error);
+            });
+        }
+    }).catch(error => {
+        logger.error('Smashrun login failed', error);
+    })
 }
