@@ -325,10 +325,14 @@ function syncSmashRun() {
             }).then(response => {
                 if (response.data && !response.data.info.isFailed) {
                     logger.info('Smashrun synched');
+                } else {
+                    logger.error('Smashrun failed to sync', response.data);
                 }
             }).catch(error => {
                 logger.error('Smashrun failed sync', error);
             });
+        } else {
+            logger.error('Could not log in to Smashrun', response.data);
         }
     }).catch(error => {
         logger.error('Smashrun login failed', error);
