@@ -260,13 +260,11 @@ async function sendActivity(session, activityId) {
 function sendSlackMessage(data) {
     const hours = Math.floor(data.moving_time / 60 / 60);
     const minutes = Math.floor((data.moving_time - (hours * 3600)) / 60);
-    const minutesDisplay = minutes >= 10 ? minutes : minutes <= 0 ? '00' : `0${minutes}`;
     const seconds = data.moving_time - (hours * 3600) - (minutes * 60);
-    const secondsDisplay = seconds >= 10 ? seconds : seconds <= 0 ? '00' : `0${seconds}`;
-    const maxSpeed = parseFloat(data.max_speed) * 3.6;
-    let messageText = `>>>*${data.name}*\n${data.firstname} did a ${(data.distance / 1000).toFixed(1)}km ${data.type.toLowerCase()} in ${hours > 0 ? hours + ':' : ''}${minutesDisplay}:${secondsDisplay}, gaining ${data.total_elevation_gain}m (${Math.round(data.total_elevation_gain * 3.28084)}ft.) in elevation :mountain:`;
-    if (maxSpeed > 0 && data.type.toLowerCase() === 'run') {
-        messageText += ` and hit a max speed of ${(data.max_speed * 3.6).toFixed(1)}kph :dash:`
+    const heading = `<https://www.strava.com/activities/${data.id}|${data.name}>`;
+    let messageText = `>>>*${heading}*\n${data.firstname} did a ${(data.distance * 0.000621371).toFixed(2)}mi (${(data.distance / 1000).toFixed(1)}km) ${data.type.toLowerCase()} in ${hours > 0 ? hours + ':' : ''}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}, gaining ${Math.round(data.total_elevation_gain * 3.28084)}ft. (${data.total_elevation_gain}m) in elevation :mountain:`;
+    if (data.achievement_count > 0 && data.type.toLowerCase() === 'run') {
+        messageText += ` ${data.achievement_count} achievements on this one! :trophy:`
     }
     const message = {
         blocks: [
