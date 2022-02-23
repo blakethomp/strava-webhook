@@ -262,7 +262,15 @@ function sendSlackMessage(data) {
     const minutes = Math.floor((data.moving_time - (hours * 3600)) / 60);
     const seconds = data.moving_time - (hours * 3600) - (minutes * 60);
     const heading = `<https://www.strava.com/activities/${data.id}|${data.name}>`;
-    let messageText = `>>>*${heading}*\n${data.firstname} did a ${(data.distance * 0.000621371).toFixed(2)}mi (${(data.distance / 1000).toFixed(1)}km) ${data.type.toLowerCase()} in ${hours > 0 ? hours + ':' : ''}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}, gaining ${Math.round(data.total_elevation_gain * 3.28084)}ft. (${data.total_elevation_gain}m) in elevation :mountain:`;
+    let messageText;
+    let durationText = `${hours > 0 ? hours + ':' : ''}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    switch (data.type.toLowerCase()) {
+        case 'rowing':
+            messageText = `>>>*${heading}*\n${data.firstname} went ${data.type.toLowerCase()} for ${durationText}, averaging ${data.average_cadence} strokes per minute :rowboat:`;
+            break;
+        default:
+            messageText = `>>>*${heading}*\n${data.firstname} did a ${(data.distance * 0.000621371).toFixed(2)}mi (${(data.distance / 1000).toFixed(1)}km) ${data.type.toLowerCase()} in ${durationText}, gaining ${Math.round(data.total_elevation_gain * 3.28084)}ft. (${data.total_elevation_gain}m) in elevation :mountain:`;
+    }
     if (data.achievement_count > 0 && data.type.toLowerCase() === 'run') {
         const achievementsStr = data.achievement_count > 1 ? 'achievements' : 'achievement';
         messageText += ` ${data.achievement_count} ${achievementsStr} on this one! :trophy:`
